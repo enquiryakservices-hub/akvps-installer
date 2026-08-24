@@ -2,43 +2,24 @@
 
 set -e
 
-clear
-
-echo "=============================================================="
-echo "      _    _  _  __ __     ______   _____ "
-echo "     / \  | |/ /    \ \   / /  _ \ / ____"
-echo "    / _ \ | ' /      \ \_/ /| |_) | (___   "
-echo "   / ___ \| . \       \   / |  __/ \___ \  "
-echo "  /_/   \_\_|\_\       |_|  |_|    ____) "
-echo ""
-echo "             AK VPS Premium Proxy Installer"
-echo "=============================================================="
-echo " Website : https://akvps.in"
-echo " Support : https://t.me/akvpsdotin"
-echo "=============================================================="
-echo ""
-
 # Root Check
 if [ "$EUID" -ne 0 ]; then
-    echo "Please run with sudo."
+    echo "Please run as root."
     exit 1
 fi
 
-echo "[1/7] Updating Packages..."
-apt-get update -y -qq
-
-echo "[2/7] Installing Required Packages..."
-apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" curl wget apache2-utils
-
-echo "[3/7] Downloading Squid Installer..."
-wget -q https://raw.githubusercontent.com/serverok/squid-proxy-installer/master/squid3-install.sh -O /tmp/squid3-install.sh
-
-echo "[4/7] Installing Squid..."
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
-apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" squid
 
-# Detect Config
+# 1. Update & Install Dependencies
+apt-get update -y -qq
+apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" curl wget apache2-utils squid ufw
+
+# 2. Open Port 8000 in Firewall
+ufw allow 8000/tcp >/dev/null 2>&1 || true
+iptables -I INPUT -p tcp --dport 8000 -j ACCEPT >/dev/null 2>&1 || true
+
+# 3. Detect Squid Config File
 if [ -f /etc/squid/squid.conf ]; then
     CONF="/etc/squid/squid.conf"
 elif [ -f /etc/squid3/squid.conf ]; then
@@ -48,12 +29,10 @@ else
     exit 1
 fi
 
-echo "[5/7] Configuring Squid..."
-
+# 4. Configure Port 8000
 sed -i 's/^http_port .*/http_port 8000/' "$CONF"
 
 PASSFILE="/etc/squid/passwd"
-
 mkdir -p /etc/squid
 
 USERNAME="user$(tr -dc 'a-z0-9' </dev/urandom | head -c6)"
@@ -61,7 +40,12 @@ PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c12)"
 
 htpasswd -cb "$PASSFILE" "$USERNAME" "$PASSWORD"
 
-grep -q "basic_ncsa_auth" "$CONF" || cat >> "$CONF" <<EOF
+# Remove Old Auth Directives if any
+sed -i '/auth_param/d' "$CONF"
+sed -i '/basic_ncsa_auth/d' "$CONF"
+
+# Append New Auth Setup
+cat >> "$CONF" <<EOF
 
 auth_param basic program /usr/lib/squid/basic_ncsa_auth $PASSFILE
 auth_param basic realm AK VPS Proxy
@@ -72,36 +56,10 @@ EOF
 chown proxy:proxy "$PASSFILE" 2>/dev/null || true
 chmod 640 "$PASSFILE"
 
-echo "[6/7] Restarting Squid..."
+# 5. Restart Squid Service
 systemctl restart squid
 
-echo "[7/7] Fetching Server Information..."
-
+# 6. Fetch IP & Output Result
 IP=$(curl -4 -s https://api.ipify.org)
 
-clear
-
-echo "=============================================================="
-echo "      _    _  _  __ __     ______   _____ "
-echo "     / \  | |/ /    \ \   / /  _ \ / ____| "
-echo "    / _ \ | ' /      \ \_/ /| |_) | (___ | "
-echo "   / ___ \| . \       \   / |  __/ \___ \  "
-echo "  /_/   \_\_|\_\       |_|  |_|    ____) |"
-echo ""
-echo "             AK VPS Premium Proxy Installer"
-echo "=============================================================="
-echo "              INSTALLATION COMPLETED"
-echo "=============================================================="
-echo ""
-echo " Website  : https://akvps.in"
-echo " Support  : https://t.me/akvpsdotin"
-echo ""
-echo " Proxy IP : $IP"
-echo " Port     : 8000"
-echo " Username : $USERNAME"
-echo " Password : $PASSWORD"
-echo ""
 echo "FINAL_PROXY_OUTPUT:$IP:8000:$USERNAME:$PASSWORD"
-echo ""
-echo " Thank you for choosing AK VPS!"
-echo "=============================================================="
