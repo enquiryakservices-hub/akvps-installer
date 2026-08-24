@@ -25,7 +25,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo "[1/7] Updating Packages..."
-apt-get update -y
+apt-get update -y -qq
 
 echo "[2/7] Installing Required Packages..."
 apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" curl wget
@@ -34,7 +34,9 @@ echo "[3/7] Downloading Squid Installer..."
 wget -q https://raw.githubusercontent.com/serverok/squid-proxy-installer/master/squid3-install.sh -O /tmp/squid3-install.sh
 
 echo "[4/7] Installing Squid..."
-apt-get install -y
+export DEBIAN_FRONTEND=noninteractive
+export NEEDRESTART_MODE=a
+apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" squid
 
 # Detect Config
 if [ -f /etc/squid/squid.conf ]; then
