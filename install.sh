@@ -28,7 +28,7 @@ echo "[1/7] Updating Packages..."
 apt-get update -y -qq
 
 echo "[2/7] Installing Required Packages..."
-apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" curl wget
+apt-get install -y -qq -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" curl wget apache2-utils
 
 echo "[3/7] Downloading Squid Installer..."
 wget -q https://raw.githubusercontent.com/serverok/squid-proxy-installer/master/squid3-install.sh -O /tmp/squid3-install.sh
