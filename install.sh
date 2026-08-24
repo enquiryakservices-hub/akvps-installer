@@ -3,15 +3,14 @@
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 
-# 1. Update & Install Squid First
-apt-get update -y -qq >/dev/null 2>&1
-apt-get install -y -qq apache2-utils squid ufw curl wget >/dev/null 2>&1
+# Fast package install without full upgrade delay
+apt-get install -y apache2-utils squid ufw curl wget >/dev/null 2>&1
 
-# 2. Firewall Port 8000 Open
+# Port Open
 ufw allow 8000/tcp >/dev/null 2>&1 || true
 iptables -I INPUT -p tcp --dport 8000 -j ACCEPT >/dev/null 2>&1 || true
 
-# 3. Setup Directory & Passwd File
+# Directories & Credentials
 mkdir -p /etc/squid
 PASSFILE="/etc/squid/passwd"
 CONF="/etc/squid/squid.conf"
@@ -23,7 +22,7 @@ htpasswd -cb "$PASSFILE" "$USERNAME" "$PASSWORD" >/dev/null 2>&1
 chown proxy:proxy "$PASSFILE" 2>/dev/null || true
 chmod 640 "$PASSFILE"
 
-# 4. Working Squid Config Write
+# Config Setup
 cat > "$CONF" <<EOF
 http_port 8000
 
@@ -37,10 +36,9 @@ forwarded_for off
 via off
 EOF
 
-# 5. Restart Squid Service
+# Restart Service
 systemctl restart squid >/dev/null 2>&1 || service squid restart >/dev/null 2>&1
 
-# 6. Fetch Public IP & Print Final String
 IP=$(curl -4 -s https://api.ipify.org)
 
 echo "FINAL_PROXY_OUTPUT:$IP:8000:$USERNAME:$PASSWORD"
